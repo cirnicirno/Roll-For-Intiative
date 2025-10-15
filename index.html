@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D&D Трекер боя</title>
+  <style>
+    /* =====================
+       Minimal + Gradients + Palettes
+       - Убраны бренд/подпись/иконка в шапке
+       - Добавлен градиентный фон
+       - Кнопка "Состояния" → иконка, фиксён оверлап с полем "Имя"
+       - Переключатель палитр с пресетами
+       ===================== */
+
+    *,*::before,*::after{ box-sizing:border-box }
+    :root{
+      /* Базовые переменные — будут перезаписаны палитрой */
+      --bg:#ffffff;         /* цвет карточек/панелей */
+      --fg:#0b0b0b;         /* основной текст */
+      --muted:#666;         /* вторичный текст */
+      --border:#e5e5e5;     /* границы */
+      --accent:#3b82f6;     /* акцент */
+      --ok:#16a34a;         /* успех */
+      --danger:#e11d48;     /* ошибка */
+
+      /* Градиент фона */
+      --bg1:#f6f7fb;
+      --bg2:#eaeefc;
+
+      --radius:12px;
+      --radius-sm:8px;
+      --control-h:40px;
+    }
+
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--fg);
+      font: 500 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Noto Sans", Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      background-attachment: fixed;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+
+    /* Layout */
+    .container{ max-width:1100px; margin:0 auto; padding:14px 16px }
+    header{ position:sticky; top:0; z-index:10; background: transparent }
+    .topbar{ display:flex; align-items:center; gap:10px; backdrop-filter: blur(6px); border-bottom:1px solid color-mix(in oklab, var(--border) 70%, transparent); background: color-mix(in oklab, var(--bg) 60%, transparent); border-top-left-radius:0; border-top-right-radius:0 }
+
+    /* Tabs */
+    .tabs{ display:flex; gap:8px; flex-wrap:wrap }
+    .tab{ appearance:none; background:transparent; border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:700; color:var(--fg) }
+    .tab.active{ background:var(--fg); color:var(--bg); border-color:var(--fg) }
+
+    /* Palette picker */
+    .palette{ display:flex; align-items:center; gap:8px; margin-left:auto }
+    .palette label{ color:var(--muted); font-weight:700; font-size:.9rem }
+    .palette select{ height:var(--control-h); border:1px solid var(--border); background: color-mix(in oklab, var(--bg) 92%, transparent); color:var(--fg); border-radius:10px; padding:6px 12px; cursor:pointer; box-shadow: inset 0 0 0 9999px color-mix(in oklab, var(--bg) 92%, transparent) }
+    .palette select:hover{ background: color-mix(in oklab, var(--bg) 85%, transparent) }
+    .palette select:focus{ border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent), inset 0 0 0 9999px color-mix(in oklab, var(--bg) 88%, transparent) }
+    .palette select option{ background: var(--bg); color: var(--fg) }
+
+    /* Panels */
+    main{ max-width:1100px; margin: 14px auto 100px; padding: 0 16px }
+    section.panel{ display:none; border:1px solid var(--border); border-radius:var(--radius); padding:14px; background: color-mix(in oklab, var(--bg) 85%, transparent) }
+    section.panel.active{ display:block }
+
+    /* Form elements */
+    .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:stretch }
+    .field{ display:flex; flex-direction:column; gap:6px; min-width:0 }
+    .field label{ font-size:.85rem; color:var(--muted); font-weight:700 }
+
+    input[type="text"], input[type="number"], select, textarea{
+      padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--fg);
+      outline:none; font-size:1rem; min-width:0; transition:border-color .15s ease;
+    }
+    input[type="text"], input[type="number"], select{ height:var(--control-h) }
+    input::placeholder, textarea::placeholder{ color:var(--muted) }
+    input:focus, select:focus, textarea:focus{ border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in oklab, var(--accent) 25%, transparent) }
+    textarea{ width:100%; min-height:120px; resize:vertical }
+
+    /* Buttons */
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--border); cursor:pointer; border-radius:8px;
+      padding:8px 12px; font-weight:800; color:var(--fg); background:transparent; transition: background .12s ease, border-color .12s ease; height:var(--control-h); white-space:nowrap }
+    .btn:hover{ background:color-mix(in oklab, var(--fg) 6%, transparent) }
+    .btn:active{ transform: translateY(1px) }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed }
+    .btn.small{ padding:6px 10px; white-space:nowrap; font-weight:700; height:32px }
+    .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent) }
+    .btn.ghost{ background:transparent }
+    .btn.red{ background:transparent; border-color:var(--danger); color:var(--danger) }
+    .btn.green{ background:transparent; border-color:var(--ok); color:var(--ok) }
+    .btn.icon{ width:34px; padding:0; aspect-ratio:1/1; font-size:16px }
+
+    .tag{ font-weight:800; font-size:.85rem; color:var(--fg); padding:2px 8px; border:1px solid var(--border); border-radius:999px; background: color-mix(in oklab, var(--bg) 85%, transparent) }
+    .subtitle{ color:var(--muted); font-weight:600; font-size:.9rem }
+
+    /* Cards */
+    .enc-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:10px }
+    .enc-card, .card{ border:1px solid var(--border); border-radius:var(--radius); padding:12px; background: color-mix(in oklab, var(--bg) 95%, transparent) }
+    .card.active{ outline:2px solid var(--accent); outline-offset:2px }
+    .card.dead{ opacity:.7 }
+
+    .enc-card-head{ display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px }
+    .enc-title{ min-width:0 }
+    .enc-title .retro{ display:none }
+    .enc-title input{ width:100%; min-width:0 }
+
+    /* prevent overlap on narrow */
+    @media (max-width:560px){
+      .enc-card-head{ grid-template-columns:1fr; align-items:stretch }
+      .enc-actions{ justify-content:flex-start }
+    }
+
+    /* ensure action buttons don't overlap */
+    .enc-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+
+    .enc-stats{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:6px }
+    @media (max-width:820px){ .enc-stats{ grid-template-columns:repeat(2, minmax(0,1fr)) } }
+    @media (max-width:520px){ .enc-stats{ grid-template-columns:1fr } }
+    /* align inputs on one line visually */
+    .enc-stats{ align-items:end }
+    .enc-stats .field label{ min-height:1.2em }
+    .enc-card-head{ align-items:center }
+
+    /* Chips (conditions) */
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background: color-mix(in oklab, var(--bg) 90%, transparent); margin:3px; font-size:.85rem; font-weight:800; color:var(--fg) }
+    .chip .x{ cursor:pointer; opacity:.8 }
+
+    /* Combat */
+    .initiative-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px }
+    .order{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:10px; margin-top:10px }
+    .cname{ font-weight:900; font-size:1.05rem; display:flex; align-items:center; gap:8px }
+
+    .hp{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; margin:8px 0 }
+    .incdec{ display:flex; gap:6px; flex-wrap:wrap }
+
+    .hpbar{ position:relative; height:8px; background: var(--border); border-radius:999px; overflow:hidden }
+    .hpbar > span.real{ position:absolute; left:0; top:0; bottom:0; background: var(--danger); width:0% }
+    .hpbar > span.temp{ position:absolute; right:0; top:0; bottom:0; background: var(--ok); width:0% }
+
+    .shield{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background: color-mix(in oklab, var(--bg) 90%, transparent); border:1px solid var(--ok); font-weight:800; color:var(--ok) }
+    .shield svg{width:14px;height:14px; stroke:var(--ok) }
+
+    .order-header{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:4px 0 8px }
+    .kbd{background:transparent; border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-weight:800; color:var(--fg)}
+
+    /* Toast */
+    .footerbar{ position:fixed; inset:auto 0 14px; display:flex; justify-content:center; pointer-events:none }
+    .toast{ pointer-events:auto; background: color-mix(in oklab, var(--bg) 96%, transparent); color:var(--fg); padding:10px 12px; border-radius:8px; border:1px solid var(--border); opacity:0; transform:translateY(8px); transition:.2s ease; font-size:.95rem }
+    .toast.show{ opacity:1; transform:translateY(0) }
+
+    /* Dialog */
+    dialog{ border:1px solid var(--border); border-radius:12px; max-width:700px; width:calc(100% - 24px); padding:0; background: color-mix(in oklab, var(--bg) 98%, transparent); color:var(--fg) }
+    dialog::backdrop{ background:rgba(0,0,0,.35) }
+    .dlg-body{ padding:12px }
+    .dlg-head{ padding:12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px }
+
+    /* Utilities */
+    .spacer{ flex:1 1 auto; min-width:0 }
+    .row .btn{ align-self:flex-end }
+    :focus-visible{ outline:2px solid var(--accent); outline-offset:2px }
+  /* CTA — самая яркая кнопка */
+    .btn.cta{ background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 8px 24px color-mix(in oklab, var(--accent) 40%, transparent), inset 0 -2px 0 color-mix(in oklab, #000 10%, transparent); font-weight:900 }
+    .btn.cta:hover{ filter:brightness(1.06) }
+    .btn.cta:focus-visible{ box-shadow:0 8px 28px color-mix(in oklab, var(--accent) 50%, transparent), 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent) inset }
+    /* После старта боя редактирование инициативы скрыто */
+    .combat-locked [data-edit-init]{ display:none !important }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="topbar">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="encounters" role="tab" aria-selected="true">Встречи</button>
+          <button class="tab" data-tab="combat" role="tab" aria-selected="false">Бой</button>
+        </div>
+        <div class="palette">
+          <label for="palettePicker">Палитра</label>
+          <select id="palettePicker" title="Выбрать палитру сайта"></select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ENCOUNTERS -->
+    <section id="encounters" class="panel active" aria-labelledby="tab-encounters">
+      <div class="row enc-header">
+        <select id="encSelect" class="enc-select"></select>
+        <button class="btn" id="newEncounterBtn">＋ Новая встреча</button>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="exportEncounterBtn" title="Скопировать JSON выбранной встречи">Экспорт</button>
+        <button class="btn ghost" id="exportAllBtn" title="Скопировать JSON всех встреч">Экспорт всех</button>
+        <button class="btn ghost" id="importBtn" title="Импортировать JSON">Импорт</button>
+      </div>
+
+      <div class="row" style="margin:8px 0 12px">
+        <div class="field" style="min-width:220px; flex:1">
+          <label>Название встречи</label>
+          <input id="encName" type="text" placeholder="Например: Засада волков у тракта" />
+        </div>
+        <button class="btn primary" id="saveEncounterBtn">Сохранить</button>
+        <div class="spacer"></div>
+        <small class="subtitle">Встречи сохраняются в <span class="tag">localStorage</span>.</small>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1 1 200px">
+          <label>Имя существа</label>
+          <input id="creName" type="text" placeholder="Гоблин-лучник" />
+        </div>
+        <div class="field" style="width:120px">
+          <label>НР (макс.)</label>
+          <input id="creHP" type="number" min="0" value="10" />
+        </div>
+        <div class="field" style="width:140px">
+          <label>Врем. НР (нач.)</label>
+          <input id="creTempHP" type="number" min="0" value="0" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Модиф. инициативы</label>
+          <input id="creInitMod" type="number" value="0" />
+        </div>
+        <button class="btn green" id="addCreatureBtn">＋ Добавить</button>
+      </div>
+
+      <div id="creaturesCards" class="enc-grid"></div>
+
+      <details style="margin-top:12px">
+        <summary><b>Экспорт/импорт JSON вручную</b></summary>
+        <div class="row" style="margin-top:8px">
+          <div class="field" style="flex:1">
+            <label>JSON</label>
+            <textarea id="jsonArea" placeholder='{"encounters":[...]}'></textarea>
+          </div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" id="copyJsonBtn">Копировать</button>
+          <button class="btn" id="loadJsonBtn">Загрузить</button>
+        </div>
+      </details>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn" id="toCombatBtn">Перейти к бою</button>
+      </div>
+    </section>
+
+    <!-- COMBAT -->
+    <section id="combat" class="panel" aria-labelledby="tab-combat">
+      <div class="row" style="margin-bottom:10px">
+        <div class="field" style="min-width:220px; flex:1">
+          <label>Выбрать встречу</label>
+          <select id="encSelect2"></select>
+        </div>
+        <button class="btn primary" id="prepareBtn">Обзор</button>
+        <button class="btn primary cta" id="startBtn" disabled>Начать бой</button>
+        <button class="btn ghost" id="resetInitBtn">Сброс</button>
+      </div>
+
+      <div id="prepBlock" hidden>
+        <div class="row" style="margin-top:4px; align-items:center">
+          <div class="tag">Этап 0 — броски инициативы (д20 + мод)</div>
+          <div class="spacer"></div>
+          <small class="subtitle">Подсказка: нажмите <span class="kbd">R</span> для броска у выделенного поля.</small>
+        </div>
+        <div class="initiative-grid" id="initGrid"></div>
+      </div>
+
+      <div id="fightBlock" hidden>
+        <div class="order-header">
+          <span class="tag">Раунд: <b id="roundLbl">1</b></span>
+          <span class="tag">Ход: <b id="turnLbl">—</b></span>
+          <div class="spacer"></div>
+          <button class="btn" id="prevBtn" title="Предыдущий (Shift+N)">Назад</button>
+          <button class="btn primary" id="nextBtn" title="Следующий (N)">Следующий ход</button>
+          <button class="btn ghost" id="endBtn">Завершить бой</button>
+        </div>
+        <div class="order" id="order"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Conditions Dialog -->
+  <dialog id="condDialog">
+    <div class="dlg-head">
+      <div style="font-weight:900">Состояния</div>
+      <button class="btn small ghost" data-cond-action="close">✖</button>
+    </div>
+    <div class="dlg-body">
+      <div id="condForName" style="font-weight:800; margin-bottom:8px"></div>
+      <div id="condList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px"></div>
+      <div class="row" style="margin-top:12px">
+        <div class="spacer"></div>
+        <button class="btn primary" data-cond-action="apply">Применить</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="footerbar"><div id="toast" class="toast" role="status" aria-live="polite"></div></div>
+
+  <!-- ===================== JS ===================== -->
+  <script>
+  const STORAGE_KEY = 'dnd-encounters-v2';
+  const THEME_KEY = 'dnd-theme';
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+  const CONDITIONS = [
+    { key:'unconscious', name:'Бессознательный' },
+    { key:'frightened', name:'Испуганный' },
+    { key:'exhaustion', name:'Истощенный', levels:5 },
+    { key:'invisible', name:'Невидимый' },
+    { key:'incapacitated', name:'Недееспособный' },
+    { key:'deafened', name:'Оглохший' },
+    { key:'petrified', name:'Окаменевший' },
+    { key:'restrained', name:'Опутанный' },
+    { key:'blinded', name:'Ослеплённый' },
+    { key:'poisoned', name:'Отравленный' },
+    { key:'charmed', name:'Очарованный' },
+    { key:'stunned', name:'Ошеломлённый' },
+    { key:'paralyzed', name:'Парализованный' },
+    { key:'prone', name:'Сбитый с ног / лежащий ничком' },
+    { key:'grappled', name:'Схваченный' },
+  ];
+
+  // ===== Palettes =====
+  const THEMES = {
+    nature: {
+      label: 'Природа',
+      bg:'#11140f', fg:'#e6f0e6', muted:'#a3b3a3', border:'#2d3a2e', accent:'#6bbf59', ok:'#7dd35f', danger:'#ef767a',
+      bg1:'#0a0f0a', bg2:'#1b2a1b'
+    },
+    midnight: {
+      label: 'Тёмная ночь',
+      bg:'#0d0f14', fg:'#e9eef5', muted:'#9aa4b2', border:'#222838', accent:'#4f76ff', ok:'#21c07a', danger:'#ff5c7a',
+      bg1:'#05060a', bg2:'#131726'
+    },
+    dawn: {
+      label: 'Рассвет',
+      bg:'#161218', fg:'#fbe9ef', muted:'#d3b8c4', border:'#2b2230', accent:'#ff8f70', ok:'#57d38c', danger:'#ff6b6b',
+      bg1:'#1a1420', bg2:'#2a1e2e'
+    },
+    sea: {
+      label: 'Море',
+      bg:'#0e1318', fg:'#e3f2fd', muted:'#97a9b8', border:'#203041', accent:'#2ab0ff', ok:'#35d0a5', danger:'#ff6a7a',
+      bg1:'#071019', bg2:'#0f2234'
+    },
+    sunset: {
+      label: 'Закат',
+      bg:'#171012', fg:'#ffefe7', muted:'#d6b9b0', border:'#2f1b1f', accent:'#ff7a45', ok:'#6be585', danger:'#ff4d6d',
+      bg1:'#1b0f10', bg2:'#2a151a'
+    }
+  };
+
+  function applyTheme(name){
+    const t = THEMES[name] || THEMES.nature;
+    const r = document.documentElement.style;
+    r.setProperty('--bg', t.bg);
+    r.setProperty('--fg', t.fg);
+    r.setProperty('--muted', t.muted);
+    r.setProperty('--border', t.border);
+    r.setProperty('--accent', t.accent);
+    r.setProperty('--ok', t.ok);
+    r.setProperty('--danger', t.danger);
+    r.setProperty('--bg1', t.bg1);
+    r.setProperty('--bg2', t.bg2);
+    localStorage.setItem(THEME_KEY, name);
+  }
+
+  function initPalettePicker(){
+    const sel = $('#palettePicker');
+    sel.innerHTML = Object.entries(THEMES)
+      .map(([k,v])=>`<option value="${k}">${v.label}</option>`)
+      .join('');
+    const saved = localStorage.getItem(THEME_KEY) || 'nature';
+    sel.value = saved;
+    applyTheme(saved);
+    sel.addEventListener('change', ()=> applyTheme(sel.value));
+  }
+
+  // ===== Data =====
+  function uid(){ return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+  function loadEncounters(){ const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('dnd-encounters-v1'); try{ return raw ? JSON.parse(raw) : {encounters:[]} }catch{ return {encounters:[]} } }
+  function saveEncounters(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
+
+  let state = { data: loadEncounters(), currentId: null, combat: null };
+
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1600) }
+  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)) }
+  function rollD20(){ return Math.floor(Math.random()*20)+1 }
+  function getEncounter(){ return state.data.encounters.find(e=>e.id===state.currentId) || null }
+
+  const encSelect = $('#encSelect');
+  const encSelect2 = $('#encSelect2');
+  function refreshEncSelectors(){
+    state.data.encounters.forEach(e=> e.creatures.forEach(c=>{ if(typeof c.tempHp!=="number") c.tempHp = 0 }))
+    const opts = state.data.encounters.map(e=>`<option value="${e.id}">${escapeHtml(e.name||'Без названия')}</option>`).join('');
+    const has = state.data.encounters.length>0;
+    encSelect.innerHTML = has ? opts : '<option value="">(нет встреч)</option>';
+    encSelect2.innerHTML = has ? opts : '<option value="">(нет встреч)</option>';
+    if(has){ if(!state.currentId || !state.data.encounters.some(e=>e.id===state.currentId)){ state.currentId = state.data.encounters[0].id; }
+      encSelect.value = state.currentId; encSelect2.value = state.currentId; } else { state.currentId = null }
+    renderEncounterEditor();
+  }
+
+  function renderEncounterEditor(){
+    const enc = getEncounter();
+    $('#encName').value = enc ? enc.name : '';
+    const wrap = $('#creaturesCards'); if(!wrap){ return }
+    wrap.innerHTML = '';
+    if(!enc){ return }
+    enc.creatures.forEach((c)=>{
+      const card = document.createElement('div');
+      card.className = 'enc-card';
+      card.dataset.id = c.id;
+      card.innerHTML = `
+        <div class="enc-card-head">
+          <div class="enc-title">
+            <div class="retro">Имя</div>
+            <input data-edit="name" data-id="${c.id}" type="text" value="${escapeHtml(c.name)}" />
+          </div>
+          <div class="enc-actions">
+            <button class="btn small ghost icon" data-open-cond="${c.id}" aria-label="Состояния" title="Состояния">🩹</button>
+            <button class="btn small red" data-del="${c.id}">Удалить</button>
+          </div>
+        </div>
+        <div class="enc-stats">
+          <div class="field"><label>НР (макс.)</label><input data-edit="hp" data-id="${c.id}" type="number" min="0" value="${c.maxHp}"></div>
+          <div class="field"><label>Врем. НР</label><input data-edit="temp" data-id="${c.id}" type="number" min="0" value="${c.tempHp||0}"></div>
+          <div class="field"><label>Мод. инициативы</label><input data-edit="initMod" data-id="${c.id}" type="number" value="${c.initMod}"></div>
+        </div>
+        <div class="cond-zone">${renderCondChipsInline(c.conditions)}</div>
+      `;
+      wrap.appendChild(card);
+    })
+  }
+
+  function renderCondChipsInline(conds){ if(!conds || conds.length===0) return '<span class="subtitle">—</span>'; return conds.map(co=>{ const def = CONDITIONS.find(x=>x.key===co.key); const nm = def? def.name : co.key; const lvl = co.level? ` (${co.level})` : ''; return `<span class=\"chip\">${escapeHtml(nm+lvl)}</span>` }).join(''); }
+
+  $('#addCreatureBtn').addEventListener('click', ()=>{
+    const enc = getEncounter(); if(!enc){ toast('Создайте встречу'); return }
+    const name = $('#creName').value.trim(); const maxHp = +$('#creHP').value || 0; const tempHp = clamp(+$('#creTempHP').value || 0, 0, 999); const initMod = +$('#creInitMod').value || 0;
+    if(!name){ toast('Введите имя существа'); return }
+    enc.creatures.push({ id: uid(), name, maxHp, hp:maxHp, tempHp, initMod, initiative:null, conditions:[] });
+    $('#creName').value=''; $('#creHP').value=10; $('#creTempHP').value=0; $('#creInitMod').value=0;
+    saveEncounters(state.data); renderEncounterEditor(); toast('Существо добавлено')
+  })
+
+  // Delete / open conditions in editor
+  $('#creaturesCards').addEventListener('click', (e)=>{
+    const del = e.target.closest('[data-del]');
+    const open = e.target.closest('[data-open-cond]');
+    const enc = getEncounter(); if(!enc) return;
+    if(del){ enc.creatures = enc.creatures.filter(c=>c.id!==del.dataset.del); saveEncounters(state.data); renderEncounterEditor(); }
+    if(open){ openCondDialog(open.dataset.openCond) }
+  })
+  $('#creaturesCards').addEventListener('input', (e)=>{
+    const inp = e.target.closest('[data-edit]'); if(!inp) return; const enc = getEncounter(); if(!enc) return; const c = enc.creatures.find(x=>x.id===inp.dataset.id); if(!c) return;
+    if(inp.dataset.edit==='name') c.name = inp.value;
+    if(inp.dataset.edit==='hp'){ c.maxHp = Math.max(0, +inp.value||0); c.hp = Math.min(c.hp ?? c.maxHp, c.maxHp) }
+    if(inp.dataset.edit==='temp'){ c.tempHp = clamp(+inp.value||0, 0, 999) }
+    if(inp.dataset.edit==='initMod') c.initMod = +inp.value||0; saveEncounters(state.data);
+  })
+
+  $('#newEncounterBtn').addEventListener('click', ()=>{ const e = { id: uid(), name:'Новая встреча', creatures:[] }; state.data.encounters.unshift(e); state.currentId = e.id; saveEncounters(state.data); refreshEncSelectors(); toast('Встреча создана') })
+  $('#saveEncounterBtn').addEventListener('click', ()=>{ const enc = getEncounter(); if(!enc){ toast('Нет выбранной встречи'); return } enc.name = $('#encName').value.trim() || 'Без названия'; saveEncounters(state.data); refreshEncSelectors(); toast('Сохранено') })
+  encSelect.addEventListener('change', ()=>{ state.currentId = encSelect.value; encSelect2.value = state.currentId; renderEncounterEditor() })
+
+  function copyText(text){ if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast('Скопировано в буфер обмена')).catch(()=>{ $('#jsonArea').value=text; $('#jsonArea').select(); document.execCommand('copy'); toast('Скопировано') }) } else { $('#jsonArea').value=text; $('#jsonArea').select(); document.execCommand('copy'); toast('Скопировано') } }
+  $('#exportEncounterBtn').addEventListener('click', ()=>{ const enc = getEncounter(); if(!enc){ toast('Нет встречи'); return } copyText(JSON.stringify({ encounter:enc }, null, 2)) })
+  $('#exportAllBtn').addEventListener('click', ()=>{ copyText(JSON.stringify(state.data, null, 2)) })
+  $('#importBtn').addEventListener('click', ()=>{ $('#jsonArea').focus(); toast('Вставьте JSON в поле ниже и нажмите «Загрузить…»') })
+  $('#copyJsonBtn').addEventListener('click', ()=> copyText($('#jsonArea').value||'') )
+  $('#loadJsonBtn').addEventListener('click', ()=>{
+    let txt = $('#jsonArea').value.trim(); if(!txt){ toast('Пустой JSON'); return }
+    try{ const obj = JSON.parse(txt);
+      if(obj.encounter){ (obj.encounter.creatures||[]).forEach(c=>{ if(typeof c.tempHp!=="number") c.tempHp=0 })
+        state.data.encounters.unshift(obj.encounter); state.currentId = obj.encounter.id || state.data.encounters[0].id;
+      } else if(obj.encounters){ (obj.encounters||[]).forEach(e=> (e.creatures||[]).forEach(c=>{ if(typeof c.tempHp!=="number") c.tempHp=0 }))
+        state.data = obj; state.currentId = state.data.encounters[0]?.id || null;
+      } else { throw new Error('Неверная структура JSON') }
+      saveEncounters(state.data); refreshEncSelectors(); toast('Импортировано')
+    }catch(err){ toast('Ошибка JSON: '+err.message) }
+  })
+
+  $('#toCombatBtn').addEventListener('click', ()=>{ selectTab('combat'); encSelect2.value = state.currentId; $('#prepareBtn').click(); })
+
+  encSelect2.addEventListener('change', ()=>{ state.currentId = encSelect2.value; encSelect.value = state.currentId; renderEncounterEditor(); clearCombat() })
+  $('#prepareBtn').addEventListener('click', ()=>{ prepareInitiative() })
+  $('#resetInitBtn').addEventListener('click', ()=>{ clearCombat(true); prepareInitiative() })
+  $('#startBtn').addEventListener('click', startCombat)
+  $('#nextBtn').addEventListener('click', ()=>advanceTurn(1))
+  $('#prevBtn').addEventListener('click', ()=>advanceTurn(-1))
+  $('#endBtn').addEventListener('click', ()=>{ clearCombat(); toast('Бой завершён') })
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key.toLowerCase()==='n' && !$('#fightBlock').hidden){ e.preventDefault(); advanceTurn(1) }
+    if(e.key.toLowerCase()==='n' && e.shiftKey && !$('#fightBlock').hidden){ e.preventDefault(); advanceTurn(-1) }
+    if(e.key.toLowerCase()==='r' && !$('#fightBlock').hidden && document.activeElement?.dataset?.initId){ e.preventDefault(); const id = document.activeElement.dataset.initId; rollFor(id) }
+  })
+
+  function prepareInitiative(){
+    const enc = getEncounter(); if(!enc){ toast('Нет встречи'); return }
+    $('#prepBlock').hidden=false; $('#fightBlock').hidden=true; $('#startBtn').disabled=false;
+    const grid = $('#initGrid'); grid.innerHTML='';
+    enc.creatures.forEach(c=>{
+      if(typeof c.hp!=="number") c.hp = c.maxHp; if(typeof c.tempHp!=="number") c.tempHp = 0; c.initiative = c.initiative ?? null;
+      const card = document.createElement('div'); card.className='card';
+      card.innerHTML = `
+        <div class="cname">${escapeHtml(c.name)} <span class="subtitle" style="font-size:.9rem">(мод: ${c.initMod>=0?'+':''}${c.initMod})</span></div>
+        <div class="row" style="margin-top:8px">
+          <div class="field" style="width:140px">
+            <label>Инициатива</label>
+            <input type="number" step="1" data-init-id="${c.id}" value="${c.initiative??''}" placeholder="—" />
+          </div>
+          <button class="btn" data-roll="${c.id}">Бросить</button>
+          <div class="spacer"></div>
+          <div class="field" style="width:160px">
+            <label>Последний d20</label>
+            <input type="text" data-lastdie="${c.id}" value="" placeholder="—" readonly />
+          </div>
+        </div>`;
+      grid.appendChild(card);
+    })
+    grid.addEventListener('click', onPrepClick, { once:true });
+  }
+  function onPrepClick(e){ const grid = $('#initGrid'); grid.addEventListener('click', (ev)=>{ const r = ev.target.closest('[data-roll]'); if(r) rollFor(r.dataset.roll) }); grid.addEventListener('input', (ev)=>{ const inp = ev.target.closest('[data-init-id]'); if(!inp) return; const enc = getEncounter(); if(!enc) return; const c = enc.creatures.find(x=>x.id===inp.dataset.initId); if(!c) return; c.initiative = +inp.value || 0; }); }
+  function rollFor(id){ const enc = getEncounter(); if(!enc) return; const c = enc.creatures.find(x=>x.id===id); if(!c) return; const d = rollD20(); const total = d + (+c.initMod||0); c.initiative = total; const inp = document.querySelector(`[data-init-id="${id}"]`); if(inp){ inp.value = total; inp.focus() } const last = document.querySelector(`[data-lastdie="${id}"]`); if(last){ last.value = `${d} + ${c.initMod>=0?'+':''}${c.initMod} = ${total}` } }
+
+  function startCombat(){
+    const enc = getEncounter(); if(!enc){ toast('Нет встречи'); return }
+    const order = enc.creatures.map(c=>({ ...c }))
+      .sort((a,b)=>{ const aa = (a.initiative??0), bb=(b.initiative??0); if(bb!==aa) return bb-aa; if((b.initMod||0)!==(a.initMod||0)) return (b.initMod||0)-(a.initMod||0); return a.name.localeCompare(b.name) });
+    state.combat = { round:1, turn:0, list:order };
+    $('#prepBlock').hidden=true; $('#fightBlock').hidden=false; document.body.classList.add('combat-locked');
+    renderOrder();
+  }
+
+  function clearCombat(keepInits=false){ if(!keepInits){ const enc=getEncounter(); if(enc){ enc.creatures.forEach(c=> c.initiative=null) } } state.combat = null; document.body.classList.remove('combat-locked'); $('#prepBlock').hidden=true; $('#fightBlock').hidden=true; $('#startBtn').disabled=true; $('#order').innerHTML=''; }
+
+  function advanceTurn(step){ const cb = state.combat; if(!cb) return; const len = cb.list.length; if(len===0) return; let next = cb.turn; let loops=0; do { next = (next + step + len) % len; loops++; if(loops>len*2){ toast('Нет доступных существ для хода'); return } } while(isSkipped(cb.list[next]))
+    const wrapped = (step>0 && next<=cb.turn) || (step<0 && next>cb.turn); if(wrapped){ cb.round += (step>0?1:-1); cb.round = Math.max(1, cb.round) } cb.turn = next; renderOrder(); }
+  function isSkipped(c){ return (c.hp??c.maxHp) <= 0 }
+
+  function applyHpDelta(c, delta){ if(delta<0){ let dmg = -delta; const soak = Math.min(c.tempHp||0, dmg); c.tempHp = (c.tempHp||0) - soak; dmg -= soak; if(dmg>0){ c.hp = clamp((c.hp??c.maxHp) - dmg, 0, c.maxHp) } } else if(delta>0){ c.hp = clamp((c.hp??c.maxHp) + delta, 0, c.maxHp) } syncUnconscious(c); }
+  function applyTempDelta(c, delta){ c.tempHp = clamp((c.tempHp||0) + delta, 0, 999) }
+  function syncUnconscious(c){ if((c.hp??c.maxHp) <= 0){ if(!c.conditions) c.conditions=[]; if(!c.conditions.some(x=>x.key==='unconscious')) c.conditions.push({key:'unconscious'}) } else { if(c.conditions) c.conditions = c.conditions.filter(x=>x.key!=='unconscious') } }
+
+  function renderOrder(){ const cb = state.combat; if(!cb) return; $('#roundLbl').textContent = cb.round; $('#turnLbl').textContent = (cb.turn+1)+"/"+cb.list.length; const wrap = $('#order'); wrap.innerHTML='';
+    cb.list.forEach((c,i)=>{ const max = c.maxHp||0; const cur = (typeof c.hp==="number"?c.hp:max); const temp = clamp(c.tempHp||0,0,999); const pct = max>0? clamp((cur/max)*100,0,100) : 0; const tempPct = max>0? clamp((temp/max)*100,0,100) : 0; const conds = renderCondChips(c);
+      const card = document.createElement('div'); card.className='card'+(i===cb.turn?' active':'')+(cur<=0?' dead':''); card.dataset.id=c.id;
+      card.innerHTML = `
+        <div class="cname">${escapeHtml(c.name)} <span class="subtitle" style="font-size:.9rem">иниц: ${c.initiative??'—'} (${c.initMod>=0?'+':''}${c.initMod})</span></div>
+        <div class="hp">
+          <div class="incdec">
+            <button class="btn small" data-delta-hp="-3">−3</button>
+            <button class="btn small" data-delta-hp="-1">−1</button>
+            <button class="btn small" data-delta-hp="+1">+1</button>
+            <button class="btn small" data-delta-hp="+3">+3</button>
+          </div>
+          <input type="number" class="hpinput" value="${cur}" min="0" />
+          <span class="subtitle" style="font-size:.9rem">/ ${max}</span>
+        </div>
+        <div class="hpbar"><span class="real" style="width:${pct}%"></span><span class="temp" style="width:${tempPct}%"></span></div>
+        <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+          <span class="shield" title="Временные НР">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l7 3v5c0 4.97-3.05 9.39-7 11-3.95-1.61-7-6.03-7-11V6l7-3Z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            <input class="tempinput" type="number" min="0" value="${temp}" style="width:84px">
+          </span>
+          <div class="incdec">
+            <button class="btn small" data-delta-temp="-3">🛡 −3</button>
+            <button class="btn small" data-delta-temp="-1">🛡 −1</button>
+            <button class="btn small" data-delta-temp="+1">🛡 +1</button>
+            <button class="btn small" data-delta-temp="+3">🛡 +3</button>
+          </div>
+        </div>
+        <div style="margin-top:10px">${conds}</div>
+        <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn small ghost icon" data-open-cond="${c.id}" aria-label="Состояния" title="Состояния">🩹</button>
+          <button class="btn small ghost" data-edit-init="${c.id}">Инициатива</button>
+        </div>`;
+      wrap.appendChild(card);
+    })
+
+    wrap.onclick = (ev)=>{ const card = ev.target.closest('.card'); if(!card) return; const id = card.dataset.id; const idx = cb.list.findIndex(x=>x.id===id); const c = cb.list[idx];
+      if(ev.target.matches('[data-delta-hp]')){ const d = +ev.target.dataset.deltaHp; applyHpDelta(c, d); if(isSkipped(c) && idx===cb.turn){ advanceTurn(1); return } renderOrder(); }
+      if(ev.target.matches('[data-delta-temp]')){ const d = +ev.target.dataset.deltaTemp; applyTempDelta(c, d); renderOrder(); }
+      if(ev.target.matches('.hpinput')) return; if(ev.target.matches('.tempinput')) return;
+      if(ev.target.matches('[data-open-cond]')){ openCondDialog(id, true) }
+      if(ev.target.matches('[data-edit-init]')){ editInitiative(id) }
+    }
+    wrap.oninput = (ev)=>{ const card = ev.target.closest('.card'); if(!card) return; const id = card.dataset.id; const c = cb.list.find(x=>x.id===id); if(!c) return;
+      if(ev.target.matches('.hpinput')){ const next = clamp(+ev.target.value||0, 0, c.maxHp); c.hp = next; syncUnconscious(c); }
+      if(ev.target.matches('.tempinput')){ c.tempHp = clamp(+ev.target.value||0, 0, 999) }
+      const real = card.querySelector('.hpbar .real'); const temp = card.querySelector('.hpbar .temp'); const pct = c.maxHp>0? clamp((c.hp/c.maxHp)*100,0,100):0; const tpct = c.maxHp>0? clamp((c.tempHp/c.maxHp)*100,0,100):0; real.style.width = pct+'%'; temp.style.width = tpct+'%'; if(isSkipped(c)){ card.classList.add('dead') } else { card.classList.remove('dead') }
+    }
+  }
+
+  function renderCondChips(c){ if(!c.conditions || c.conditions.length===0) return '<span class="subtitle">Состояний нет</span>'; return c.conditions.map((co, i)=>{ const def = CONDITIONS.find(x=>x.key===co.key); const name = def?def.name:co.key; const lvl = co.level?` (${co.level})`:''; return `<span class=\"chip\" data-condkey=\"${co.key}\" data-index=\"${i}\">${escapeHtml(name+lvl)} <span class=\"x\" title=\"Убрать\">✖</span></span>` }).join(''); }
+  $('#order').addEventListener('click', (ev)=>{ const chip = ev.target.closest('.chip .x'); if(!chip) return; const card = ev.target.closest('.card'); const id = card.dataset.id; const cb = state.combat; const c = cb.list.find(x=>x.id===id); const condSpan = ev.target.closest('.chip'); const idx = +condSpan.dataset.index; c.conditions.splice(idx,1); renderOrder(); })
+
+  function editInitiative(id){ const cb = state.combat; if(!cb) return; const c = cb.list.find(x=>x.id===id); if(!c) return; const val = prompt('Введите инициативу (число). Для броска нажмите Отмена.'); if(val!==null){ c.initiative = +val||0 } else { c.initiative = rollD20() + (+c.initMod||0) } const activeId = cb.list[cb.turn]?.id; cb.list.sort((a,b)=> (b.initiative??0)-(a.initiative??0) || (b.initMod||0)-(a.initMod||0) || a.name.localeCompare(b.name)); cb.turn = Math.max(0, cb.list.findIndex(x=>x.id===activeId)); renderOrder(); }
+
+  let condTarget = { id:null, inFight:false };
+  function openCondDialog(creatureId, inFight=false){ const enc = getEncounter(); if(!enc) return; condTarget = { id: creatureId, inFight }; const creature = (inFight && state.combat) ? state.combat.list.find(x=>x.id===creatureId) : enc.creatures.find(x=>x.id===creatureId); if(!creature) return; $('#condForName').textContent = creature.name; const box = $('#condList'); box.innerHTML=''; CONDITIONS.forEach(def=>{ const row = document.createElement('div'); row.className='row'; const found = (creature.conditions||[]).find(x=>x.key===def.key); row.innerHTML = `<label class=\"chip\"><input type=\"checkbox\" data-condkey=\"${def.key}\" ${found?'checked':''}/> ${def.name}</label>${def.levels? `<input type=\"number\" min=\"1\" max=\"${def.levels}\" value=\"${found?.level||1}\" data-level-for=\"${def.key}\" class=\"small\">` : ''}`; box.appendChild(row); }); const dlg = $('#condDialog'); dlg.showModal(); }
+  $('#condDialog').addEventListener('click', (e)=>{ if(e.target.dataset.condAction==='close'){ e.target.closest('dialog').close() } if(e.target.dataset.condAction==='apply'){ applyConditions(); e.target.closest('dialog').close(); renderEncounterEditor(); if(state.combat) renderOrder(); } })
+  function applyConditions(){ const enc = getEncounter(); if(!enc) return; const tgt = condTarget.inFight && state.combat ? state.combat.list.find(x=>x.id===condTarget.id) : enc.creatures.find(x=>x.id===condTarget.id); if(!tgt) return; const checks = Array.from($('#condList').querySelectorAll('[data-condkey]')); const next = []; checks.forEach(ch=>{ const key = ch.dataset.condkey; if(ch.checked){ const def = CONDITIONS.find(x=>x.key===key); const levelInp = def?.levels? $('#condList').querySelector(`[data-level-for="${key}"]`) : null; const obj = { key, ...(levelInp? {level: clamp(+levelInp.value||1,1,def.levels)} : {}) }; next.push(obj); } }); tgt.conditions = next; syncUnconscious(tgt); }
+
+  $$('.tab').forEach(btn=> btn.addEventListener('click', ()=> selectTab(btn.dataset.tab)) )
+  function selectTab(name){ $$('.tab').forEach(b=>{ const on=b.dataset.tab===name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on) }); $$('.panel').forEach(p=> p.classList.toggle('active', p.id===name)); if(name==='combat'){ encSelect2.value=state.currentId; } }
+
+  function escapeHtml(s){ return s?.toString().replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])) || '' }
+
+  // Self-tests
+  function runSelfTests(){ try{
+      let c = { maxHp:10, hp:10, tempHp:5, conditions:[], initMod:0 };
+      applyHpDelta(c, -3); console.assert(c.hp===10 && c.tempHp===2, 'TempHP soak failed');
+      applyHpDelta(c, -5); console.assert(c.hp===7 && c.tempHp===0, 'HP after temp soak failed');
+      applyHpDelta(c, +2); console.assert(c.hp===9, 'Healing only HP');
+      c.hp = 0; syncUnconscious(c); console.assert(c.conditions.some(x=>x.key==='unconscious'), 'Unconscious not applied');
+      c.hp = 1; syncUnconscious(c); console.assert(!c.conditions.some(x=>x.key==='unconscious'), 'Unconscious not removed');
+      JSON.parse(JSON.stringify(state.data));
+      console.log('%cSelf-tests passed','color:var(--accent)');
+    }catch(err){ console.error('Self-test error:', err); toast('Self-test failed: '+err.message); }
+  }
+
+  // Init
+  initPalettePicker();
+  refreshEncSelectors();
+  if(!state.currentId){ const demo = { id: uid(), name: 'Демо: Волчья засада', creatures:[
+      { id: uid(), name:'Волк А', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
+      { id: uid(), name:'Волк Б', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
+      { id: uid(), name:'Следопыт', maxHp:22, hp:22, tempHp:0, initMod:+3, initiative:null, conditions:[] },
+      { id: uid(), name:'Менестрель', maxHp:18, hp:18, tempHp:0, initMod:+1, initiative:null, conditions:[] }
+    ] }; state.data.encounters.push(demo); state.currentId=demo.id; saveEncounters(state.data); refreshEncSelectors(); }
+  runSelfTests();
+  </script>
+</body>
+</html>
