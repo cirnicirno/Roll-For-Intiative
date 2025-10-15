@@ -5,17 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D&D Трекер боя</title>
   <style>
-    /* =====================
-       Minimal + Gradients + Palettes
-       - Убраны бренд/подпись/иконка в шапке
-       - Добавлен градиентный фон
-       - Кнопка "Состояния" → иконка, фиксён оверлап с полем "Имя"
-       - Переключатель палитр с пресетами
-       ===================== */
 
     *,*::before,*::after{ box-sizing:border-box }
     :root{
-      /* Базовые переменные — будут перезаписаны палитрой */
       --bg:#ffffff;         /* цвет карточек/панелей */
       --fg:#0b0b0b;         /* основной текст */
       --muted:#666;         /* вторичный текст */
@@ -630,10 +622,10 @@
   initPalettePicker();
   refreshEncSelectors();
   if(!state.currentId){ const demo = { id: uid(), name: 'Демо: Волчья засада', creatures:[
-      { id: uid(), name:'Волк А', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
-      { id: uid(), name:'Волк Б', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
-      { id: uid(), name:'Следопыт', maxHp:22, hp:22, tempHp:0, initMod:+3, initiative:null, conditions:[] },
-      { id: uid(), name:'Менестрель', maxHp:18, hp:18, tempHp:0, initMod:+1, initiative:null, conditions:[] }
+      { id: uid(), name:'Мадам Небесная', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
+      { id: uid(), name:'Клава Гонококка', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
+      { id: uid(), name:'Коннор Бляшка', maxHp:11, hp:11, tempHp:0, initMod:+2, initiative:null, conditions:[] },
+      { id: uid(), name:'Шедоуфарт', maxHp:18, hp:18, tempHp:0, initMod:+1, initiative:null, conditions:[] }
     ] }; state.data.encounters.push(demo); state.currentId=demo.id; saveEncounters(state.data); refreshEncSelectors(); }
   runSelfTests();
   </script>
